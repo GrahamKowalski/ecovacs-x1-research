@@ -10,7 +10,7 @@
 This is the research companion to a working Valetudo fork that runs the Ecovacs Deebot X1 Omni
 fully local, with no Ecovacs cloud and no account. It holds the reverse-engineering that made
 the fork possible: the map format, the robot's on-board ROS interface, the control and settings
-protocols, and the on-device deployment. The fork itself lives in a [separate repository](https://github.com/GrahamKowalski/ecovacs-local).
+protocols, and the on-device deployment. The fork itself lives in a [separate repository](https://github.com/GrahamKowalski/valetudo-ecovacs-x1).
 
 > **Status: the core work is done and running on a real X1 Omni.** State, map, cleaning
 > control, fan and water, locate, and the Home Assistant integration are implemented and
