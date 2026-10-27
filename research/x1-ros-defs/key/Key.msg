@@ -1,0 +1,14 @@
+# topic /key/Key, md5 7e80d04254d16c280e39e414b4406336
+#type enum
+uint8 KEY_TYPE_AUTO = 0
+uint8 KEY_TYPE_RESET = 1
+uint8 type    #KEY_TYPE
+
+#type enum
+uint8 KEY_EVENT_CLICK = 0
+uint8 KEY_EVENT_DOUBLE_CLICK = 1
+uint8 KEY_EVENT_LONG_PRESSED = 2
+uint8 KEY_EVENT_LONG_LONG_PRESSED = 3
+uint8 KEY_EVENT_PRESSED_DOWN = 4
+uint8 KEY_EVENT_PRESSED_UP = 5
+uint8 event   # KEY_EVENT

@@ -1,0 +1,41 @@
+# Device secrets — the serial number alone is the root credential seed. Keep all of
+# this out of the repo. See CONTRIBUTING.md.
+secrets/
+*.key
+*.pem
+sysinfo*
+serial*
+eco_passwd*
+
+# Firmware / flash dumps (copyright + embedded secrets)
+dumps/
+*.img
+*.bin
+*.ubi
+*.squashfs
+
+# Traffic captures (redact before adding any excerpt by hand)
+captures/
+*.pcap
+*.pcapng
+*.sslkeylog
+*.mitm
+
+# Raw logs (may contain identifiers)
+*.log
+logs/
+
+# Scratch
+scratch/
+tmp/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# serial recon driver (drives the device; output has secrets)
+eco_recon*
+recon/

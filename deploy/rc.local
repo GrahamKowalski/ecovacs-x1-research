@@ -1,0 +1,22 @@
+#!/bin/sh
+# ValetudoEV X1 local control, added to the rootfs image. rc.sysinit runs this at the
+# end of boot. Reversible: flashing the stock rootfs backup removes it.
+mkdir -p /data/log
+
+# Persistent recovery shell (plaintext telnet, LAN only). Replace with dropbear once an
+# aarch64 dropbear binary is added to the image.
+telnetd -l /bin/sh -p 2323 &
+
+# Seed the config on first boot (writable /data). Device ids come from the stock config.
+if [ ! -f /data/valetudo_config.json ]; then
+    cp /usr/local/share/valetudo/valetudo_config.seed.json /data/valetudo_config.json
+fi
+
+export VALETUDO_CONFIG_PATH=/data/valetudo_config.json
+
+# OTA override: a newer backend binary dropped at /data/valetudo (over the network, no
+# reflash) is preferred over the one baked into the read-only rootfs. This makes backend
+# updates brick-free; only non-backend rootfs changes need a ubiupdatevol reflash.
+BIN=/usr/local/bin/valetudo
+[ -x /data/valetudo ] && BIN=/data/valetudo
+"$BIN" >> /data/log/valetudo.log 2>&1 &
