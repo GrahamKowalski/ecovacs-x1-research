@@ -28,11 +28,20 @@ python3 /work/deploy/patch_madvise.py /tmp/valetudo.patched
 install -D -m 0755 /tmp/valetudo.patched "$RF/usr/local/bin/valetudo"
 install -D -m 0644 /work/deploy/valetudo_config.seed.json "$RF/usr/local/share/valetudo/valetudo_config.seed.json"
 install -m 0755 /work/deploy/rc.local "$RF/etc/rc.local"
+# Static (musl) dropbear SSH server, replaces reliance on the unauthenticated telnet shell.
+install -D -m 0755 /work/deploy/dropbearmulti "$RF/usr/local/bin/dropbearmulti"
+# Admin SSH public key for key auth. /root is read-only at runtime, so authorized_keys must
+# be baked into the image. Perms must be tight or dropbear refuses the key.
+install -d -m 0700 "$RF/root/.ssh"
+install -m 0600 /work/deploy/x1_admin_ed25519.pub "$RF/root/.ssh/authorized_keys"
+# dropbear rejects a login whose shell is not listed in /etc/shells. The stock file lists only
+# /bin/bash, but root's shell is /bin/sh, so add it (and ash) or SSH is refused before auth.
+printf '/bin/sh\n/bin/bash\n/bin/ash\n' > "$RF/etc/shells"
 # Pure-local (ROS) build: no Ecocloud TLS certs, so the robot runs ROS-only and the cloud
 # mock is disabled (EcovacsX1OmniValetudoRobot treats missing certs as non-fatal in ROS mode).
 # To ship the cloud mock too, re-add: install -D "$CERTS/server.key" .../ecocloud.key etc.
 
 rm -f "$OUT"
-mksquashfs "$RF" "$OUT" -noappend -comp gzip -b 131072 -all-root
+mksquashfs "$RF" "$OUT" -noappend -comp xz -b 131072 -all-root
 echo "built $OUT"; ls -l "$OUT"
 echo "rootfs UBI volume is 100 MiB (413 LEBs); image must be <= that."

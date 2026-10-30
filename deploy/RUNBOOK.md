@@ -3,6 +3,34 @@
 Goal: run the fork's backend on the robot so it starts on boot and controls the vacuum
 locally over ROS, with no cloud. Based on the device analysis in the research notes.
 
+## Current state and corrections (2026-10-30)
+
+The notes below are chronological; where they differ from this section, this section wins.
+
+- **The rootfs flash is done from U-BOOT over UART, not from Linux.** `ubiupdatevol /dev/ubi0_0`
+  on the running system fails with `error 16 (Device or resource busy)` because the rootfs
+  volume is mounted. The original "reflash-free"/`ubiupdatevol` wording was aspirational. Flash
+  from the u-boot console (`Hobot>`, u-boot 2018.09) instead; backend-only updates to
+  `/data/valetudo` are still fully OTA (no reflash).
+- **Verified u-boot flash recipe** (image already staged on `/data` via HTTP/curl, md5 known):
+  `ubi part userdata; ubifsmount ubi0:userdata; ubifsload 0x6000000 new_rootfs.squashfs;`
+  `md5sum 0x6000000 ${filesize}` (gate against the known md5); `ubifsumount; ubi part system;`
+  `ubi write 0x6000000 rootfs ${filesize}; ubi read 0x20000000 rootfs ${filesize};`
+  `md5sum 0x20000000 ${filesize}` (gate again); `reset`. `bootdelay=0`, so tap a key during the
+  first second to catch the prompt. Recover a bad flash with the stock `dump/rootfs_ubi0_0.img`
+  the same way (`ubi write ... rootfs`).
+- **The image is now xz-compressed** (`-comp xz`, kernel has `CONFIG_SQUASHFS_XZ=y`), ~81 MiB vs
+  ~97 MiB gzip, leaving ~19 MiB headroom in the 100 MiB volume.
+- **`rc.local` is a supervisor**: it waits ~30 s for the ROS graph, launches the backend, and
+  relaunches it if it exits, so a post-boot out-of-memory crash (ROS-not-ready window) self-heals.
+- **SSH**: `rc.local` starts a static-musl `dropbearmulti` (built in Alpine arm64 Docker,
+  `LDFLAGS='-static -no-pie'`; static-PIE, no shared-lib deps, runs on the robot's glibc 2.23) on
+  port 22, key auth via a baked `/root/.ssh/authorized_keys`, host keys generated into `/data`.
+  `/etc/shells` must list `/bin/sh` or dropbear rejects root ("invalid shell"); the image fixes
+  it. Telnet 2323 is kept as a lockout fallback for now.
+- **Future-OTA (fw_setenv one-shot bootcmd) was investigated and dropped**: the u-boot env has no
+  cleanly writable region to target, so rootfs flashes stay a UART/u-boot step.
+
 ## Target architecture (verified)
 
 - Rootfs `/` is a **static UBI squashfs volume** `rootfs` on `ubi0` (NAND `mtd5` "system"),

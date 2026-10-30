@@ -3,8 +3,19 @@
 # end of boot. Reversible: flashing the stock rootfs backup removes it.
 mkdir -p /data/log
 
-# Persistent recovery shell (plaintext telnet, LAN only). Replace with dropbear once an
-# aarch64 dropbear binary is added to the image.
+# SSH recovery/admin shell (dropbear, static musl build, no libc dependency). Host keys
+# live in /data because the rootfs is read-only; root password auth uses /etc/shadow (the
+# same serial-derived password as the console). Telnet 2323 is kept for now as a lockout
+# fallback while SSH is being trusted; drop it in a follow-up once SSH is confirmed.
+DB=/usr/local/bin/dropbearmulti
+if [ -x "$DB" ]; then
+    mkdir -p /data/dropbear
+    [ -f /data/dropbear/ed25519_host_key ] || "$DB" dropbearkey -t ed25519 -f /data/dropbear/ed25519_host_key >/dev/null 2>&1
+    [ -f /data/dropbear/rsa_host_key ] || "$DB" dropbearkey -t rsa -s 2048 -f /data/dropbear/rsa_host_key >/dev/null 2>&1
+    "$DB" dropbear -r /data/dropbear/ed25519_host_key -r /data/dropbear/rsa_host_key -p 22 >/dev/null 2>&1 &
+fi
+
+# Plaintext telnet fallback (LAN only).
 telnetd -l /bin/sh -p 2323 &
 
 # Seed the config on first boot (writable /data). Device ids come from the stock config.
@@ -19,4 +30,18 @@ export VALETUDO_CONFIG_PATH=/data/valetudo_config.json
 # updates brick-free; only non-backend rootfs changes need a ubiupdatevol reflash.
 BIN=/usr/local/bin/valetudo
 [ -x /data/valetudo ] && BIN=/data/valetudo
-"$BIN" >> /data/log/valetudo.log 2>&1 &
+
+# Startup supervisor. For the first ~20-30 s after boot the robot's ROS graph (rosmaster
+# and the vendor /node) is not ready; the backend's subscription and map-poll retries can
+# then exhaust its 64 MiB heap and crash before ROS settles, and with a single launch it
+# would stay down. So wait briefly for ROS, then keep the backend running: relaunch it if
+# it exits, which rides through the post-boot window and recovers from any later crash.
+start_valetudo() {
+    sleep 30
+    while true; do
+        "$BIN" >> /data/log/valetudo.log 2>&1
+        echo "[rc.local] backend exited ($?) at $(date); relaunching in 15s" >> /data/log/valetudo.log
+        sleep 15
+    done
+}
+start_valetudo &
